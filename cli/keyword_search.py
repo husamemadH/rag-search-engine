@@ -1,6 +1,42 @@
 import string
 from search_utils import DEFAULT_SEARCH_LIMIT, load_movies
 from nltk.stem import PorterStemmer
+import pickle
+
+
+class InvertedIndex:
+    index: dict
+    docmap: dict
+
+    def __init__(self) -> None:
+        self.index = {}
+        self.docmap = {}
+
+    def __add_document(self, doc_id, text):
+        tokenized_text = tokenize(text)
+
+        for token in tokenized_text:
+            if token not in self.index:
+                self.index[token] = set()
+            self.index[token].add(doc_id)
+
+    def get_documents(self, term):
+        return sorted(self.index.get(term, []))
+
+    def build(self):
+
+        movies = load_movies()
+
+        for movie in movies:
+            self.docmap[movie["id"]] = movie
+            self.__add_document(movie["id"], f"{movie['title']} {movie['description']}")
+
+    def save(self):
+        with open("cache/index.pkl", "wb") as f:
+            pickle.dump(self.index, f)
+        with open("cache/docmap.pkl", "wb") as f:
+            pickle.dump(self.docmap, f)
+
 
 movies = load_movies()
 
@@ -202,6 +238,14 @@ stop_words = {
     "yourself",
     "yourselves",
 }
+
+
+def build_command():
+    idx = InvertedIndex()  # create the index
+    idx.build()  # fill it (the data work)
+    idx.save()  # persist it to disk
+    docs = idx.get_documents("merida")
+    print(f"First document for token 'merida' = {docs[0]}")
 
 
 def search_command(query: str) -> list[str]:
