@@ -35,6 +35,11 @@ class InvertedIndex:
     def get_tf(self, doc_id: int, term: str) -> int:
         return self.term_frequencies[doc_id][term]
 
+    def get_idf(self, term: str) -> float:
+        total_doc_count = len(self.docmap)
+        term_match_doc_count = len(self.get_documents(term))
+        return math.log((total_doc_count + 1) / (term_match_doc_count + 1))
+
     def build(self) -> None:
         movies = load_movies()
 
@@ -86,15 +91,15 @@ def idf_command(term: str) -> float:
     idx.load()
 
     tokenized_term = tokenize_single_term(term)
-    total_doc_count = len(idx.docmap)
-    term_match_doc_count = len(idx.get_documents(tokenized_term))
+    return idx.get_idf(tokenized_term)
 
-    idf_value = math.log(
-        (total_doc_count + 1) / (term_match_doc_count + 1)
-    )  # +1 to avoid division by zero
 
-    return idf_value
+def tfidf_command(docid: int, term: str) -> float:
+    idx = InvertedIndex()
+    idx.load()
 
+    tokenized_term = tokenize_single_term(term)
+    return idx.get_tf(docid, tokenized_term) * idx.get_idf(tokenized_term)
 
 def search_command(query: str) -> list[Movie]:
     results = []
