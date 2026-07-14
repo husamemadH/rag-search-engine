@@ -5,6 +5,7 @@ from search_utils import DEFAULT_SEARCH_LIMIT, Movie, load_movies
 from nltk.stem import PorterStemmer
 from stop_words import STOP_WORDS
 import pickle
+import math
 
 
 class InvertedIndex:
@@ -70,7 +71,6 @@ def build_command() -> None:
     idx = InvertedIndex()
     idx.build()
     idx.save()
-    docs = idx.get_documents("merida")
 
 
 def tf_command(docid: int, term: str) -> None:
@@ -79,6 +79,21 @@ def tf_command(docid: int, term: str) -> None:
 
     tokenized_term = tokenize_single_term(term)
     print(f"{idx.get_tf(docid, tokenized_term)}")
+
+
+def idf_command(term: str) -> float:
+    idx = InvertedIndex()
+    idx.load()
+
+    tokenized_term = tokenize_single_term(term)
+    total_doc_count = len(idx.docmap)
+    term_match_doc_count = len(idx.get_documents(tokenized_term))
+
+    idf_value = math.log(
+        (total_doc_count + 1) / (term_match_doc_count + 1)
+    )  # +1 to avoid division by zero
+
+    return idf_value
 
 
 def search_command(query: str) -> list[Movie]:
