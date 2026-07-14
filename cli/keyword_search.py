@@ -1,266 +1,102 @@
+from collections import Counter
 import string
-from search_utils import DEFAULT_SEARCH_LIMIT, load_movies
+import os
+from search_utils import DEFAULT_SEARCH_LIMIT, Movie, load_movies
 from nltk.stem import PorterStemmer
+from stop_words import STOP_WORDS
 import pickle
 
 
 class InvertedIndex:
-    index: dict
-    docmap: dict
+    index: dict[str, set[int]]
+    docmap: dict[int, Movie]
+    term_frequencies: dict[int, Counter[str]]
 
     def __init__(self) -> None:
         self.index = {}
         self.docmap = {}
+        self.term_frequencies = {}
 
-    def __add_document(self, doc_id, text):
+    def __add_document(self, doc_id: int, text: str) -> None:
         tokenized_text = tokenize(text)
+
+        self.term_frequencies[doc_id] = Counter()
 
         for token in tokenized_text:
             if token not in self.index:
                 self.index[token] = set()
             self.index[token].add(doc_id)
+            self.term_frequencies[doc_id][token] += 1
 
-    def get_documents(self, term):
+    def get_documents(self, term: str) -> list[int]:
         return sorted(self.index.get(term, []))
 
-    def build(self):
+    def get_tf(self, doc_id: int, term: str) -> int:
+        return self.term_frequencies[doc_id][term]
 
+    def build(self) -> None:
         movies = load_movies()
 
         for movie in movies:
             self.docmap[movie["id"]] = movie
             self.__add_document(movie["id"], f"{movie['title']} {movie['description']}")
 
-    def save(self):
+    def save(self) -> None:
         with open("cache/index.pkl", "wb") as f:
             pickle.dump(self.index, f)
         with open("cache/docmap.pkl", "wb") as f:
             pickle.dump(self.docmap, f)
+        with open("cache/term_frequencies.pkl", "wb") as f:
+            pickle.dump(self.term_frequencies, f)
+
+    def load(self) -> None:
+        if not os.path.exists("cache/index.pkl"):
+            raise FileNotFoundError("index.pkl doesnt exist")
+        if not os.path.exists("cache/docmap.pkl"):
+            raise FileNotFoundError("docmap.pkl doesnt exist")
+
+        with open("cache/index.pkl", "rb") as f:
+            self.index = pickle.load(f)
+        with open("cache/docmap.pkl", "rb") as f:
+            self.docmap = pickle.load(f)
+        with open("cache/term_frequencies.pkl", "rb") as f:
+            self.term_frequencies = pickle.load(f)
 
 
 movies = load_movies()
 
-stop_words = {
-    "a",
-    "about",
-    "above",
-    "after",
-    "again",
-    "against",
-    "ain",
-    "all",
-    "am",
-    "an",
-    "and",
-    "any",
-    "are",
-    "aren",
-    "arent",
-    "as",
-    "at",
-    "be",
-    "because",
-    "been",
-    "before",
-    "being",
-    "below",
-    "between",
-    "both",
-    "but",
-    "by",
-    "can",
-    "couldn",
-    "couldnt",
-    "d",
-    "did",
-    "didn",
-    "didnt",
-    "do",
-    "does",
-    "doesn",
-    "doesnt",
-    "doing",
-    "don",
-    "dont",
-    "down",
-    "during",
-    "each",
-    "few",
-    "for",
-    "from",
-    "further",
-    "had",
-    "hadn",
-    "hadnt",
-    "has",
-    "hasn",
-    "hasnt",
-    "have",
-    "haven",
-    "havent",
-    "having",
-    "he",
-    "hed",
-    "hell",
-    "hes",
-    "her",
-    "here",
-    "hers",
-    "herself",
-    "him",
-    "himself",
-    "his",
-    "how",
-    "i",
-    "id",
-    "ill",
-    "im",
-    "ive",
-    "if",
-    "in",
-    "into",
-    "is",
-    "isn",
-    "isnt",
-    "it",
-    "itd",
-    "itll",
-    "its",
-    "itself",
-    "just",
-    "ll",
-    "m",
-    "ma",
-    "me",
-    "mightn",
-    "mightnt",
-    "more",
-    "most",
-    "mustn",
-    "mustnt",
-    "my",
-    "myself",
-    "needn",
-    "neednt",
-    "no",
-    "nor",
-    "not",
-    "now",
-    "o",
-    "of",
-    "off",
-    "on",
-    "once",
-    "only",
-    "or",
-    "other",
-    "our",
-    "ours",
-    "ourselves",
-    "out",
-    "over",
-    "own",
-    "re",
-    "s",
-    "same",
-    "shan",
-    "shant",
-    "she",
-    "shed",
-    "shell",
-    "shes",
-    "should",
-    "shouldve",
-    "shouldn",
-    "shouldnt",
-    "so",
-    "some",
-    "such",
-    "t",
-    "than",
-    "that",
-    "thatll",
-    "the",
-    "their",
-    "theirs",
-    "them",
-    "themselves",
-    "then",
-    "there",
-    "these",
-    "they",
-    "theyd",
-    "theyll",
-    "theyre",
-    "theyve",
-    "this",
-    "those",
-    "through",
-    "to",
-    "too",
-    "under",
-    "until",
-    "up",
-    "ve",
-    "very",
-    "was",
-    "wasn",
-    "wasnt",
-    "we",
-    "wed",
-    "well",
-    "were",
-    "weve",
-    "weren",
-    "werent",
-    "what",
-    "when",
-    "where",
-    "which",
-    "while",
-    "who",
-    "whom",
-    "why",
-    "will",
-    "with",
-    "won",
-    "wont",
-    "wouldn",
-    "wouldnt",
-    "y",
-    "you",
-    "youd",
-    "youll",
-    "youre",
-    "youve",
-    "your",
-    "yours",
-    "yourself",
-    "yourselves",
-}
 
-
-def build_command():
-    idx = InvertedIndex()  # create the index
-    idx.build()  # fill it (the data work)
-    idx.save()  # persist it to disk
+def build_command() -> None:
+    idx = InvertedIndex()
+    idx.build()
+    idx.save()
     docs = idx.get_documents("merida")
-    print(f"First document for token 'merida' = {docs[0]}")
 
 
-def search_command(query: str) -> list[str]:
+def tf_command(docid: int, term: str) -> None:
+    idx = InvertedIndex()
+    idx.load()
 
-    result = []
+    tokenized_term = tokenize_single_term(term)
+    print(f"{idx.get_tf(docid, tokenized_term)}")
+
+
+def search_command(query: str) -> list[Movie]:
+    results = []
+
+    idx = InvertedIndex()
+    idx.load()
+
     tokenized_query = tokenize(query)
 
-    for movie in movies:
-        tokenized_title = tokenize(movie["title"])
-        if has_matching_token(tokenized_query, tokenized_title):
-            result.append(movie["title"])
-            if len(result) >= DEFAULT_SEARCH_LIMIT:
-                break
+    for token in tokenized_query:
+        documents = idx.get_documents(token)
+        for document_id in documents:
+            results.append(idx.docmap[document_id])
+            if len(results) >= DEFAULT_SEARCH_LIMIT:
+                return results
 
-    return result
+    return results
 
 
 def preprocess(text: str) -> str:
@@ -287,11 +123,18 @@ def tokenize(text: str) -> list[str]:
     return tokens
 
 
+def tokenize_single_term(term: str) -> str:
+    if len(tokenize(term)) > 1:
+        raise ValueError("Tokenizer output should be 1 token")
+
+    return tokenize(term)[0]
+
+
 def filter_stop_words(tokens: list[str]) -> list[str]:
     tokens_without_stop_words = []
 
     for token in tokens:
-        if token not in stop_words:
+        if token not in STOP_WORDS:
             tokens_without_stop_words.append(token)
 
     return tokens_without_stop_words
