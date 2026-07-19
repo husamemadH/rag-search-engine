@@ -8,7 +8,9 @@ class Movie(TypedDict):
     description: str
 
 
-DEFAULT_SEARCH_LIMIT = 5
+BM25_K1 = 1.5
+BM25_B = 0.75
+CACHE_DIR = "cache"
 
 
 def load_movies() -> list[Movie]:
