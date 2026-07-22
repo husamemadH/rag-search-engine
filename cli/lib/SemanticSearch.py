@@ -1,3 +1,5 @@
+import enum
+import re
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import os
@@ -120,3 +122,35 @@ def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
         return 0.0
 
     return dot_product / (norm1 * norm2)
+
+
+def chunk(text: str, chunk_size: int, overlap: int = 0):
+    print(f"Chunking {len(text)} characters")
+    words = text.split()
+    step = chunk_size - overlap
+    i = 0
+    counter = 1
+    while i < len(words):
+        current_chunk = words[i : i + chunk_size]
+        print(f"{counter}. {' '.join(current_chunk)} ")
+        counter += 1
+        i += step
+
+
+def semantic_chunk(text: str, max_chunk_size: int, overlap: int) -> list[str]:
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    chunks = []
+
+    step = max_chunk_size - overlap
+
+    i = 0
+    last_end = 0
+    while i + max_chunk_size <= len(sentences):
+        current_chunk = sentences[i : max_chunk_size + i]
+        chunks.append(' '.join(current_chunk))
+        last_end = i + max_chunk_size
+        i += step
+
+    if i < len(sentences) and i >= last_end:
+        chunks.append(' '.join(sentences[i:]))
+    return chunks
